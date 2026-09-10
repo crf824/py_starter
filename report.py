@@ -1,17 +1,28 @@
-l1 = {"0001","0002","0003"}
-l2 = {'0003',"0004","0005"}
+import matplotlib
+matplotlib.use("Agg")         
+import matplotlib.pyplot as plt
 
-print("0",l1&l2,l1|l2,l1-l2)
+matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False   
 
-pnl = [100,200,-300]
-raw = [1,2,3,4,5,4,3]
-codes = {"a":[100,200,300,400],"b":[100,200,300,400],"c":[100,200,300,-1400]}
+start_capital = 5_000_000
+daily_pnl = [12000, -8000, 25000, 5000, -15000, 30000,
+             18000, -5000, 22000, -10000, 27000, 9000]
+net_value = [start_capital]
+for p in daily_pnl:
+	net_value.append(net_value[-1] + p)
+days = list(range(len(net_value)))
 
-x1 = [x*2 for x in pnl]
-x2 = [x for x in pnl if x>0]
-x3 = [x for x in raw if x > 2]
-x4 = {k:sum(v) for k,v in codes.items()}
-x5 = {k:v for k,v in x4.items() if v >0}
 
-print(x1,x2,x3,x5)
-			
+plt.figue(figsize=(10,8))
+plt.plot(days, net_value, marker="o", color="#d62728", linewidth=2, label="账户净值")
+plt.axhline(start_capital, color="gray", linestyle="--", label="起始资金 500万")
+plt.title("账户净值曲线（模拟 12 个交易日）")
+plt.xlabel("交易日")
+plt.ylabel("净值（元）")
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.savefig("净值曲线.png", dpi=120)   # 存成图片，不弹窗
+plt.close()
+
