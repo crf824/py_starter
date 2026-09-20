@@ -23,6 +23,7 @@
 14. [从 CSV 读数据画图](#第14课-从-csv-读数据画图)
 15. [最大回撤 + 回撤阴影](#第15课-最大回撤--回撤阴影)
 16. [多只股票净值对比线](#第16课-多只股票净值对比线)
+17. [收益归因柱状图（按板块汇总）](#第17课-收益归因柱状图按板块汇总)
 
 ---
 
@@ -664,6 +665,64 @@ const datasets = Object.entries(stockPnl).map(([name, pnls], i) => {
 
 ---
 
+## 第17课：收益归因柱状图（按板块汇总）
+
+**核心知识点**
+- **多列 CSV**：`csv.reader` 每行是 `['板块','盈亏']` 这样的列表，用下标 `row[0]`/`row[1]` 取列
+- **按类别汇总（聚合 / group by）**：用空字典，遇到同一类别就累加 —— 交易、报表里最常用
+- 聚合核心写法：`d[key] = d.get(key, 0) + 值`（没有就当 0）
+- `plt.bar(类别, 高度)` 画柱状图；`bar.set_color()` 单根改色
+- **涨红跌绿**：A股习惯，赚红色 `#d62728`、亏绿色 `#2ca02c`（和美股相反）
+- `sorted(d.items(), key=lambda kv: kv[1], reverse=True)` 按值排序
+
+**🐍 Python**
+```python
+by_sector = {}
+with open("trades.csv", encoding="utf-8") as f:
+    reader = csv.reader(f)
+    next(reader)                          # 跳过表头
+    for row in reader:
+        sector = row[0]
+        pnl = int(row[1])
+        by_sector[sector] = by_sector.get(sector, 0) + pnl   # 聚合
+
+items = sorted(by_sector.items(), key=lambda kv: kv[1], reverse=True)
+sectors, totals = [k for k, v in items], [v for k, v in items]
+
+bars = ax.bar(sectors, totals)
+for bar, v in zip(bars, totals):
+    bar.set_color("#d62728" if v >= 0 else "#2ca02c")   # 涨红跌绿
+```
+
+**🌐 前端 JS（chart.js）**
+```javascript
+const bySector = {};
+trades.forEach(({ sector, pnl }) => {
+    bySector[sector] = (bySector[sector] || 0) + pnl;    // 聚合
+});
+// 或用 reduce 一步到位：
+const bySector2 = trades.reduce((acc, t) => {
+    acc[t.sector] = (acc[t.sector] || 0) + t.pnl;
+    return acc;
+}, {});
+
+// chart.js 柱状图：data 是数组，颜色按正负映射
+const datasets = [{
+    label: "各板块盈亏",
+    data: totals,
+    backgroundColor: totals.map(v => v >= 0 ? "#d62728" : "#2ca02c"),
+}];
+// new Chart(ctx, { type: "bar", data: { labels: sectors, datasets } });
+```
+> 类比：Python `d.get(k, 0) + v` ≈ JS `acc[k] = (acc[k] || 0) + v`；`plt.bar` ≈ chart.js `type:"bar"`；都是「类别 + 数值」两列就能出图。
+
+**⚠️ 易踩的坑**
+- 格式串写反：`f"{x:,+}"` 会报错，正确是 `f"{x:+,}"`（符号在前、千分位在后）。
+- 忘记 `next(reader)` 跳过表头，会把 `"sector"` 当板块名、`"pnl"` 转 int 直接崩。
+- 涨红跌绿是 A股习惯；若做美股/全球视图要反过来，别写死。
+
+---
+
 ## 速查表：Python ↔ 前端 JS 对照
 
 | 概念 | 🐍 Python | 🌐 前端 JS |
@@ -690,7 +749,11 @@ const datasets = Object.entries(stockPnl).map(([name, pnls], i) => {
 | 装库 | `pip install m` | `npm install m` |
 | 读写文件 | `open()` + `with` | `fs.readFileSync()` |
 | 画折线图 | `matplotlib` | `chart.js` |
+| 画柱状图 | `plt.bar(x, h)` | `type:"bar"` |
+| 字典取值带默认 | `d.get(k, 0)` | `d[k] || 0` |
+| 按值排序 | `sorted(d.items(), key=lambda kv: kv[1])` | `arr.sort((a,b)=>a.v-b.v)` |
+| 聚合分组 | `d[k] = d.get(k,0)+v` | `reduce((acc,t)=>..., {})` |
 
 ---
 
-> 本笔记覆盖第 1~16 课。后续新课会按同样格式，每节课都给「🐍 Python ↔ 🌐 前端 JS」对照。
+> 本笔记覆盖第 1~17 课。后续新课会按同样格式，每节课都给「🐍 Python ↔ 🌐 前端 JS」对照。
