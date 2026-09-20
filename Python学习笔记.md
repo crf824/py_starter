@@ -21,6 +21,8 @@
 12. [异常处理 + 模块拆分](#第12课-异常处理--模块拆分)
 13. [画净值曲线（matplotlib）](#第13课-画净值曲线matplotlib)
 14. [从 CSV 读数据画图](#第14课-从-csv-读数据画图)
+15. [最大回撤 + 回撤阴影](#第15课-最大回撤--回撤阴影)
+16. [多只股票净值对比线](#第16课-多只股票净值对比线)
 
 ---
 
@@ -572,6 +574,96 @@ Papa.parse(csvText, {
 
 ---
 
+## 第15课：最大回撤 + 回撤阴影
+
+**核心知识点**
+- 最大回撤 = 账户从「历史最高点」回落的最大幅度（负数，越接近 0 越好）
+- 算法：遍历净值，维护 `peak`（历史最高），每点回撤 = `(当前 - peak) / peak`，取最惨的那个
+- `fill_between` 在两条线之间填色，直观看回撤区
+
+**🐍 Python**
+```python
+def max_drawdown(equity):
+    peak = equity[0]
+    mdd = 0.0
+    for x in equity:
+        if x > peak:
+            peak = x
+        dd = (x - peak) / peak
+        if dd < mdd:
+            mdd = dd
+    return mdd
+
+# 画回撤阴影：在净值线和历史最高水位线之间填色
+ax.fill_between(days, net_value, peaks, color="red", alpha=0.15, label="回撤区")
+```
+
+**🌐 前端 JS（chart.js）**
+```javascript
+function maxDrawdown(equity) {
+    let peak = equity[0], mdd = 0;
+    for (const x of equity) {
+        if (x > peak) peak = x;
+        const dd = (x - peak) / peak;
+        if (dd < mdd) mdd = dd;
+    }
+    return mdd;
+}
+// chart.js 用 fill 选项在两条数据集之间填色：
+// dataset: { data: netValue, fill: "+1", backgroundColor: "rgba(255,0,0,0.15)" }
+```
+> 类比：算法骨架 Python 和 JS **完全一样**；`for x in equity:` ≈ `for (const x of equity)`；`fill_between` ≈ chart.js 的 `fill`（两条线之间填色）。
+
+**⚠️ 易踩的坑**
+- 最大回撤是「相对历史最高」不是「相对起点」。+50% 后回落到 +20%，回撤约 -20%，但总账仍赚。
+- `mdd` 初值设 0，只会越跌越负，用 `dd < mdd` 取最小。
+
+---
+
+## 第16课：多只股票净值对比线
+
+**核心知识点**
+- 用字典 `{"股票名": [每日盈亏]}` 存多只股票的数据（第8课 dict）
+- `zip(字典.items(), 颜色列表)` 把「每只股票」和「一个颜色」一一配对，循环一次画一条线
+- 复用之前的 `net_value_series` / `max_drawdown` 函数，写一次到处用
+- **x 轴长度 = 净值点数 = 盈亏天数 + 1**（多一个起始日），否则 x/y 不等长报错
+
+**🐍 Python**
+```python
+stock_pnl = {
+    "600519 茅台": [200, 300, -100, ...],
+    "300750 宁德": [-150, 200, 300, ...],
+}
+colors = ["#d62728", "#1f77b4", "#2ca02c"]
+days = list(range(len(stock_pnl["600519 茅台"]) + 1))   # +1 对齐起始日
+
+for (name, pnls), color in zip(stock_pnl.items(), colors):
+    nv = net_value_series(pnls, START_CAPITAL)   # 复用函数
+    mdd = max_drawdown(nv)
+    ax.plot(days, nv, color=color, label=f"{name} 回撤{mdd:.2%}")
+```
+
+**🌐 前端 JS（chart.js）**
+```javascript
+const stockPnl = {
+    "600519 茅台": [200, 300, -100, /*...*/],
+    "300750 宁德": [-150, 200, 300, /*...*/],
+};
+const colors = ["#d62728", "#1f77b4", "#2ca02c"];
+const datasets = Object.entries(stockPnl).map(([name, pnls], i) => {
+    const nv = netValueSeries(pnls, START);   // 复用函数
+    return { label: `${name} 回撤${maxDrawdown(nv).toFixed(2)}%`, data: nv, borderColor: colors[i] };
+});
+// new Chart(ctx, { type: "line", data: { labels: days, datasets } });
+```
+> 类比：Python `for (k, v), c in zip(d.items(), colors)` ≈ JS `Object.entries(d).map(([k, v], i) => ...)`；都是「遍历 + 按索引取对应颜色」。
+
+**⚠️ 易踩的坑**
+- 净值比 pnl 多一个点（多一个起始日），`days` 记得 `+1`，否则 `ValueError: x and y must have same first dimension`。
+- 颜色数比股票数多/少都会错位，保持一一对应。
+
+---
+
 ## 速查表：Python ↔ 前端 JS 对照
 
 | 概念 | 🐍 Python | 🌐 前端 JS |
@@ -601,4 +693,4 @@ Papa.parse(csvText, {
 
 ---
 
-> 本笔记覆盖第 1~15 课。后续新课会按同样格式，每节课都给「🐍 Python ↔ 🌐 前端 JS」对照。
+> 本笔记覆盖第 1~16 课。后续新课会按同样格式，每节课都给「🐍 Python ↔ 🌐 前端 JS」对照。
