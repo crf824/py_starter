@@ -24,6 +24,7 @@
 15. [最大回撤 + 回撤阴影](#第15课-最大回撤--回撤阴影)
 16. [多只股票净值对比线](#第16课-多只股票净值对比线)
 17. [收益归因柱状图（按板块汇总）](#第17课-收益归因柱状图按板块汇总)
+18. [Pandas 一行搞定板块归因](#第18课用-pandas-一行搞定板块归因)
 
 ---
 
@@ -723,6 +724,43 @@ const datasets = [{
 
 ---
 
+## 第18课：用 Pandas 一行搞定板块归因
+
+**核心知识点**
+- **DataFrame**：pandas 读 CSV 得到的"表格对象"，一列一列地存数据（像 Excel 表 / JS 里的"对象数组"）
+- **groupby 聚合**：`df.groupby("板块")["盈亏"].sum()` = 按板块分组再把盈亏相加，等价于第17课手搓的字典聚合，但**一行写完**
+- **链式调用**：`groupby(...).sum().sort_values()` 像水管一样串操作（类似 JS 的 `.map().filter()` 链式）
+- `result.index` = 板块名，`result.values` = 对应数值，直接喂给 `plt.bar`
+
+**🐍 Python（pandas）**
+```python
+import pandas as pd
+df = pd.read_csv("trades.csv")                 # 读成 DataFrame
+result = (df.groupby("sector")["pnl"]          # 按板块分组，取 pnl 列
+            .sum()                             # 每组求和
+            .sort_values(ascending=False))     # 从高到低
+print(result)
+```
+
+**🌐 前端 JS**
+```javascript
+// JS 没有内置 DataFrame，要做同样的事只能手动聚合（就是第17课的写法）：
+const bySector = trades.reduce((acc, t) => {
+    acc[t.sector] = (acc[t.sector] || 0) + t.pnl;
+    return acc;
+}, {});
+const result = Object.entries(bySector).sort((a, b) => b[1] - a[1]);
+// → 这正是 pandas groupby 在背后替你做的事
+```
+> 类比：`df.groupby("k")["v"].sum()` ≈ JS 先 `reduce` 聚合再 `sort`；pandas 把"分组求和"变成**一行内置操作**，这是它作为数据分析标配的原因。
+
+**⚠️ 易踩的坑**
+- `df.groupby("sector")["pnl"]` 里 `["pnl"]` 别忘了写，否则 `.sum()` 会把所有数字列都加一遍。
+- `result.values` 是 numpy 数组，`plt.bar` 能直接吃；要纯 Python 列表用 `list(result.values)`。
+- 读 CSV 中文乱码：加 `encoding="utf-8"`（或 `"gbk"`，看文件实际编码）。
+
+---
+
 ## 速查表：Python ↔ 前端 JS 对照
 
 | 概念 | 🐍 Python | 🌐 前端 JS |
@@ -753,7 +791,11 @@ const datasets = [{
 | 字典取值带默认 | `d.get(k, 0)` | `d[k] || 0` |
 | 按值排序 | `sorted(d.items(), key=lambda kv: kv[1])` | `arr.sort((a,b)=>a.v-b.v)` |
 | 聚合分组 | `d[k] = d.get(k,0)+v` | `reduce((acc,t)=>..., {})` |
+| 读表(CSV) | `pd.read_csv("x.csv")` | 无内置，靠库 |
+| 按列分组求和 | `df.groupby("k")["v"].sum()` | 手动 reduce 聚合 |
+| 排序 | `s.sort_values()` | `arr.sort((a,b)=>...)` |
+| 取列值数组 | `df["col"].values` | `arr.map(r=>r.col)` |
 
 ---
 
-> 本笔记覆盖第 1~17 课。后续新课会按同样格式，每节课都给「🐍 Python ↔ 🌐 前端 JS」对照。
+> 本笔记覆盖第 1~18 课。后续新课会按同样格式，每节课都给「🐍 Python ↔ 🌐 前端 JS」对照。
